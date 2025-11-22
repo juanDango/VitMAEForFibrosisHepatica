@@ -25,8 +25,8 @@ st.write(
 # ---------------------------------------
 # Cargar preprocesador
 # ---------------------------------------
-preprocessor_path = "modelos"  # carpeta donde guardaste el AutoImageProcessor
-image_processor = AutoImageProcessor.from_pretrained(preprocessor_path)
+preprocessor_path = "modelos"  
+image_processor =AutoImageProcessor.from_pretrained(preprocessor_path)
 
 
 # ---------------------------------------
