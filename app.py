@@ -89,20 +89,36 @@ def preprocess(image: Image.Image):
     return encoded["pixel_values"]
 
 def predict(session: ort.InferenceSession, image: Image.Image):
+    """
+    Ejecuta inferencia sobre una imagen usando una sesión ONNX.
+
+    Si el modelo exportó 'probabilities', se usan directamente.
+    Si solo exportó 'logits', se aplica softmax manualmente.
+    """
     inputs = preprocess(image)
-    output_names = [o.name for o in session.get_outputs()]
+
+    # nombres de salida del modelo ONNX
+    output_metadata = session.get_outputs()
+    output_names = [o.name for o in output_metadata]
+
+    # ejecutar todos los outputs disponibles
     outputs = session.run(output_names, {"pixel_values": inputs})
 
     if "probabilities" in output_names:
-        probs = outputs[output_names.index("probabilities")][0]
+        idx = output_names.index("probabilities")
+        probs = outputs[idx][0]
     elif "logits" in output_names:
-        logits = outputs[output_names.index("logits")][0]
+        idx = output_names.index("logits")
+        logits = outputs[idx][0]
         exp = np.exp(logits - np.max(logits))
         probs = exp / exp.sum()
     else:
-        raise RuntimeError(f"Salidas disponibles: {output_names}")
+        raise RuntimeError(
+            f"El modelo ONNX no tiene ni 'probabilities' ni 'logits' como salida. "
+            f"Salidas disponibles: {output_names}"
+        )
 
-    return probs
+    return probs  # vector 1D de tamaño num_clases
 
 def plot_probabilities(probabilities, labels, title):
     fig, ax = plt.subplots(figsize=(6, 3))
@@ -220,7 +236,6 @@ model_mode = st.sidebar.radio(
 )
 
 show_probs = st.sidebar.checkbox("Mostrar probabilidades", value=True)
-warn_threshold = st.sidebar.slider("Umbral de confianza para alerta", 0.0, 1.0, 0.60, 0.05)
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Herramienta de apoyo clínico, no reemplaza criterio médico.")
@@ -294,10 +309,6 @@ if input_mode == "Imagen única":
                 f"<span class='{conf_class_3}'>{conf_txt_3}</span>",
                 unsafe_allow_html=True
             )
-            if conf_3 < warn_threshold:
-                st.warning("Confianza baja. Interpreta con cautela.")
-            else:
-                st.success("Confianza adecuada.")
 
             if show_probs:
                 st.pyplot(plot_probabilities(probs_3, labels_3, "Probabilidades (3 clases)"))
@@ -318,10 +329,6 @@ if input_mode == "Imagen única":
                 f"<span class='{conf_class_5}'>{conf_txt_5}</span>",
                 unsafe_allow_html=True
             )
-            if conf_5 < warn_threshold:
-                st.warning("Confianza baja. Considera confirmar.")
-            else:
-                st.success("Confianza adecuada.")
 
             if show_probs:
                 st.pyplot(plot_probabilities(probs_5, labels_5, "Probabilidades (5 clases)"))
