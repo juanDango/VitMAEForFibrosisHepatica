@@ -273,11 +273,10 @@ st.markdown("""
 # Sidebar
 st.sidebar.header("Configuración")
 input_mode = st.sidebar.radio("Modo de entrada", ["Imagen única", "Múltiples imágenes (Lote)"])
-model_mode = st.sidebar.radio("Modelo a utilizar", ["Ambos modelos", "Solo 3 clases", "Solo 5 clases"])
 show_probs = st.sidebar.checkbox("Mostrar gráficas", value=True)
 
 st.sidebar.markdown("---")
-st.sidebar.info("Modelos ejecutándose en CPU con PyTorch Native.")
+st.sidebar.info("Ambos modelos ejecutándose en CPU con PyTorch Native.")
 
 labels_3 = ["Sano", "Fibrosis", "Cirrosis"]
 labels_5 = ["F0", "F1", "F2", "F3", "F4"]
@@ -299,39 +298,33 @@ if input_mode == "Imagen única":
 
         with col_res:
             # Ejecución
-            probs_3 = predict_torch(model_3, image) if model_mode != "Solo 5 clases" else None
-            probs_5 = predict_torch(model_5, image) if model_mode != "Solo 3 clases" else None
+            probs_3 = predict_torch(model_3, image)
+            probs_5 = predict_torch(model_5, image)
             
             # Mostrar resultados
             tab3, tab5 = st.tabs(["Diagnóstico (3 Clases)", "Estadio (5 Clases)"])
             
             with tab3:
-                if probs_3 is not None:
-                    idx = np.argmax(probs_3)
-                    lbl = labels_3[idx]
-                    conf = probs_3[idx]
-                    txt, badge = confidence_badge(conf)
-                    
-                    st.markdown(f"### Predicción: **{lbl}**")
-                    st.markdown(f"Confianza: <span class='{badge}'>{txt} ({conf:.1%})</span>", unsafe_allow_html=True)
-                    if show_probs:
-                        st.pyplot(plot_probabilities(probs_3, labels_3, ""))
-                else:
-                    st.info("Modelo desactivado")
+                idx = np.argmax(probs_3)
+                lbl = labels_3[idx]
+                conf = probs_3[idx]
+                txt, badge = confidence_badge(conf)
+                
+                st.markdown(f"### Predicción: **{lbl}**")
+                st.markdown(f"Confianza: <span class='{badge}'>{txt} ({conf:.1%})</span>", unsafe_allow_html=True)
+                if show_probs:
+                    st.pyplot(plot_probabilities(probs_3, labels_3, ""))
 
             with tab5:
-                if probs_5 is not None:
-                    idx = np.argmax(probs_5)
-                    lbl = labels_5[idx]
-                    conf = probs_5[idx]
-                    txt, badge = confidence_badge(conf)
-                    
-                    st.markdown(f"### Estadio: **{lbl}**")
-                    st.markdown(f"Confianza: <span class='{badge}'>{txt} ({conf:.1%})</span>", unsafe_allow_html=True)
-                    if show_probs:
-                        st.pyplot(plot_probabilities(probs_5, labels_5, ""))
-                else:
-                    st.info("Modelo desactivado")
+                idx = np.argmax(probs_5)
+                lbl = labels_5[idx]
+                conf = probs_5[idx]
+                txt, badge = confidence_badge(conf)
+                
+                st.markdown(f"### Estadio: **{lbl}**")
+                st.markdown(f"Confianza: <span class='{badge}'>{txt} ({conf:.1%})</span>", unsafe_allow_html=True)
+                if show_probs:
+                    st.pyplot(plot_probabilities(probs_5, labels_5, ""))
 
 # --- MODO 2: MÚLTIPLES IMÁGENES ---
 else:
@@ -345,24 +338,20 @@ else:
         for i, file in enumerate(uploaded_files):
             img = Image.open(file).convert("RGB")
             
-            p3 = predict_torch(model_3, img) if model_mode != "Solo 5 clases" else None
-            p5 = predict_torch(model_5, img) if model_mode != "Solo 3 clases" else None
+            p3 = predict_torch(model_3, img)
+            p5 = predict_torch(model_5, img)
             
-            row = {"name": file.name, "image": img}
+            idx_3 = np.argmax(p3)
+            idx_5 = np.argmax(p5)
             
-            if p3 is not None:
-                idx = np.argmax(p3)
-                row["pred3"] = labels_3[idx]
-                row["conf3"] = float(p3[idx])
-            else:
-                row["pred3"] = None
-
-            if p5 is not None:
-                idx = np.argmax(p5)
-                row["pred5"] = labels_5[idx]
-                row["conf5"] = float(p5[idx])
-            else:
-                row["pred5"] = None
+            row = {
+                "name": file.name,
+                "image": img,
+                "pred3": labels_3[idx_3],
+                "conf3": float(p3[idx_3]),
+                "pred5": labels_5[idx_5],
+                "conf5": float(p5[idx_5])
+            }
                 
             rows.append(row)
             progress_bar.progress((i + 1) / len(uploaded_files))
@@ -371,12 +360,12 @@ else:
         st.write("### Resumen de Resultados")
         st.dataframe([
             {
-                "Archivo": r["name"], 
-                "3 Clases": r["pred3"], 
-                "Conf. 3": f"{r['conf3']:.2%}" if r["conf3"] else "-",
-                "5 Clases": r["pred5"], 
-                "Conf. 5": f"{r['conf5']:.2%}" if r["conf5"] else "-"
-            } 
+                "Archivo": r["name"],
+                "3 Clases": r["pred3"],
+                "Conf. 3": f"{r['conf3']:.2%}",
+                "5 Clases": r["pred5"],
+                "Conf. 5": f"{r['conf5']:.2%}"
+            }
             for r in rows
         ], use_container_width=True)
         
